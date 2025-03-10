@@ -1,22 +1,42 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export function middleware(request: NextRequest) {
-  // Create a response first
+export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
+  const { pathname } = request.nextUrl;
+
+  // Paths that require authentication
+  const protectedPaths = [
+    /\/shipping-address/,
+    /\/payment-method/,
+    /\/place-order/,
+    /\/profile/,
+    /\/user\/(.*)/,
+    /\/order\/(.*)/,
+    /\/admin/,
+  ];
+
+  // Get authentication token from cookies
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  if (!token && protectedPaths.some((p) => p.test(pathname))) {
+    return NextResponse.redirect(new URL("/sign-in", request.url));
+  }
 
   // Check for session cart cookie
   if (!request.cookies.get("sessionCartId")) {
     const sessionCartId = crypto.randomUUID();
-    // Set the cookie on the response object
     response.cookies.set("sessionCartId", sessionCartId);
   }
 
-  // Always return the response
   return response;
 }
 
+// Define middleware matcher
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
