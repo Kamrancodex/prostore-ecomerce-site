@@ -7,6 +7,7 @@ import type { NextAuthConfig } from "next-auth";
 import { cookies } from "next/headers";
 
 export const config = {
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/sign-in",
     error: "/sign-in",
