@@ -16,8 +16,23 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { toast } from "sonner";
+import {
+  PayPalButtons,
+  PayPalScriptProvider,
+  usePayPalScriptReducer,
+} from "@paypal/react-paypal-js";
 
-const OrderDetailsTable = ({ order }: { order: Order }) => {
+import {
+  approvePayPalOrder,
+  createPayPalOrder,
+} from "@/lib/actions/order.actions";
+const OrderDetailsTable = ({
+  order,
+  paypalClientId,
+}: {
+  order: Order;
+  paypalClientId: string;
+}) => {
   const {
     id,
     shippingAddress,
@@ -32,7 +47,31 @@ const OrderDetailsTable = ({ order }: { order: Order }) => {
     paidAt,
     deliveredAt,
   } = order;
+  const PrintLoadingState = () => {
+    const [{ isPending, isRejected }] = usePayPalScriptReducer();
+    let status = "";
+    if (isPending) {
+      status = "Loading PayPal...";
+    } else if (isRejected) {
+      status = "Error Loading PayPal";
+    }
+    return status;
+  };
 
+  const handleCreatePaypalOrder = async () => {
+    const res = await createPayPalOrder(order.id);
+    if (!res.success) {
+      toast("Error", { description: res.message });
+    }
+    return res.data;
+  };
+
+  const handleApprovePaypalOrder = async (data: { orderId: string }) => {
+    const res = await approvePayPalOrder(order.id, data);
+    toast(res.success ? "Success" : "Error", {
+      description: res.message,
+    });
+  };
   return (
     <>
       <h1 className="py-4 text-2xl">Order {formatId(id)}</h1>
@@ -128,6 +167,18 @@ const OrderDetailsTable = ({ order }: { order: Order }) => {
                 <div>Total</div>
                 <div>{formatCurrency(totalPrice)}</div>
               </div>
+              {/* paypal payment*/}
+              {!isPaid && paymentMethod === "PayPal" && (
+                <div>
+                  <PayPalScriptProvider options={{ clientId: paypalClientId }}>
+                    <PrintLoadingState />
+                    <PayPalButtons
+                      createOrder={handleCreatePaypalOrder}
+                      onApprove={handleApprovePaypalOrder}
+                    />
+                  </PayPalScriptProvider>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

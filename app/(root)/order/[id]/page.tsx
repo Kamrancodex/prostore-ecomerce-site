@@ -19,6 +19,7 @@ const OrderDetailsPage = async (props: { params: Promise<{ id: string }> }) => {
         itemsPrice: order.itemsPrice,
         orderItems: order.orderitems,
       }}
+      paypalClientId={process.env.PAYPAL_CLIENT_ID || "sb"}
     />
   );
 };
