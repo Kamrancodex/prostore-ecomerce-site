@@ -109,10 +109,16 @@ export const insertOrderItemSchema = z.object({
   qty: z.number(),
 });
 
-//
+//paypal result schema
 export const paymentResultSchema = z.object({
   id: z.string(),
   status: z.string(),
   email_address: z.string(),
   pricePaid: z.string(),
+});
+
+//schema for updating user profile
+export const updateProfileSchema = z.object({
+  name: z.string().min(3, "Name mush be at least 3 characters"),
+  email: z.string().min(3, "Email mush be at least 3 characters"),
 });

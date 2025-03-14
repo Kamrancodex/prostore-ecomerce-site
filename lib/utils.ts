@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import qs from "query-string";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -105,3 +106,25 @@ export const formatDateTime = (dateString: Date) => {
     timeOnly: formattedTime,
   };
 };
+
+//form the pagination links
+
+export function formUrlQuery({
+  params,
+  key,
+  value,
+}: {
+  params: string;
+  key: string;
+  value: string | null;
+}) {
+  // Parse the existing querystring
+  const query = qs.parse(params);
+  // Update/add the key=value you want
+  query[key] = value;
+  // Build a new query string from the updated object
+  const queryString = qs.stringify(query, { skipNull: true });
+
+  // Return path + query
+  return `${window.location.pathname}?${queryString}`;
+}
