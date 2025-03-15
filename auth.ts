@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compareSync } from "bcrypt-ts-edge";
 import type { NextAuthConfig } from "next-auth";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 export const config = {
   pages: {
@@ -100,28 +101,47 @@ export const config = {
       }
       return token;
     },
-    // authorized({ request, auth }: any) {
-    //   //check for session cart cookie
+    authorized({ request, auth }: any) {
+      // 1) Define the paths that require a logged-in user
+      const protectedPaths = [
+        /\/shipping-address/,
+        /\/payment-method/,
+        /\/place-order/,
+        /\/profile/,
+        /\/user\/(.*)/,
+        /\/order\/(.*)/,
+        /\/admin/,
+      ];
 
-    //   if (!request.cookies.get("sessionCartId")) {
-    //     //generate new cart id cookie
-    //     const sessionCartId = crypto.randomUUID();
+      // 2) Check if the requested path is protected
+      const { pathname } = request.nextUrl;
+      const isProtected = protectedPaths.some((regex) => regex.test(pathname));
 
-    //     //clone the req header
-    //     const newRequestHeader = new Headers(request.headers);
-    //     //create new res and add new headers
-    //     const response = NextResponse.next({
-    //       request: {
-    //         headers: newRequestHeader,
-    //       },
-    //     });
-    //     //set newly gen session cartid in the res cookie
-    //     response.cookies.set("sessionCartId", sessionCartId);
-    //     return true;
-    //   } else {
-    //     return true;
-    //   }
-    // },
+      // 3) If user is NOT logged in (auth == null) AND path is protected => block
+      if (!auth && isProtected) {
+        // Returning `false` => NextAuth auto-redirects to `pages.signIn` => /sign-in
+        return false;
+      }
+
+      // 4) Set a sessionCartId if it doesn't exist (optional)
+      if (!request.cookies.get("sessionCartId")) {
+        const sessionCartId = crypto.randomUUID();
+
+        // Build a NextResponse that sets the cart ID cookie
+        const response = NextResponse.next({
+          request: {
+            headers: new Headers(request.headers),
+          },
+        });
+        response.cookies.set("sessionCartId", sessionCartId);
+
+        // Return that response so NextAuth merges it into the request
+        return response;
+      }
+
+      // 5) Otherwise, allow
+      return true;
+    },
   },
 } satisfies NextAuthConfig;
 
