@@ -9,34 +9,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
 import { Order } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
 
-import { toast } from "sonner";
+import { useTransition } from "react";
 import {
   PayPalButtons,
   PayPalScriptProvider,
   usePayPalScriptReducer,
 } from "@paypal/react-paypal-js";
-
 import {
-  approvePayPalOrder,
   createPayPalOrder,
+  approvePayPalOrder,
+  updateOrderToPaidCOD,
+  deliverOrder,
 } from "@/lib/actions/order.actions";
+import { toast } from "sonner";
+
 const OrderDetailsTable = ({
   order,
   paypalClientId,
+  isAdmin,
 }: {
-  order: Order;
+  order: Omit<Order, "paymentResult">;
   paypalClientId: string;
+  isAdmin: boolean;
 }) => {
   const {
     id,
     shippingAddress,
-    orderItems,
+    orderitems,
     itemsPrice,
     shippingPrice,
     taxPrice,
@@ -47,9 +52,11 @@ const OrderDetailsTable = ({
     paidAt,
     deliveredAt,
   } = order;
+
   const PrintLoadingState = () => {
     const [{ isPending, isRejected }] = usePayPalScriptReducer();
     let status = "";
+
     if (isPending) {
       status = "Loading PayPal...";
     } else if (isRejected) {
@@ -60,23 +67,71 @@ const OrderDetailsTable = ({
 
   const handleCreatePaypalOrder = async () => {
     const res = await createPayPalOrder(order.id);
+
     if (!res.success) {
       toast("Error", { description: res.message });
     }
+
     return res.data;
   };
 
-  const handleApprovePaypalOrder = async (data: { orderId: string }) => {
+  const handleApprovePaypalOrder = async (data: { orderID: string }) => {
     const res = await approvePayPalOrder(order.id, data);
+
     toast(res.success ? "Success" : "Error", {
       description: res.message,
     });
   };
+
+  // Button to mark order as paid
+  const MarkAsPaidButton = () => {
+    const [isPending, startTransition] = useTransition();
+
+    return (
+      <Button
+        type="button"
+        disabled={isPending}
+        onClick={() =>
+          startTransition(async () => {
+            const res = await updateOrderToPaidCOD(order.id);
+            toast(res.success ? "Success" : "Error", {
+              description: res.message,
+            });
+          })
+        }
+      >
+        {isPending ? "Processing..." : "Mark As Paid"}
+      </Button>
+    );
+  };
+
+  // Button to mark order as delivered
+  const MarkAsDeliveredButton = () => {
+    const [isPending, startTransition] = useTransition();
+
+    return (
+      <Button
+        type="button"
+        disabled={isPending}
+        onClick={() =>
+          startTransition(async () => {
+            const res = await deliverOrder(order.id);
+            toast(res.success ? "Success" : "Error", {
+              description: res.message,
+            });
+          })
+        }
+      >
+        {isPending ? "Processing..." : "Mark As Delivered"}
+      </Button>
+    );
+  };
+
   return (
     <>
       <h1 className="py-4 text-2xl">Order {formatId(id)}</h1>
       <div className="grid md:grid-cols-3 md:gap-5">
-        <div className="col-span-2 space-4-y overlow-x-auto">
+        <div className="col-span-2 space-4-y overflow-x-auto">
           <Card>
             <CardContent className="p-4 gap-4">
               <h2 className="text-xl pb-4">Payment Method</h2>
@@ -119,11 +174,11 @@ const OrderDetailsTable = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orderItems.map((item) => (
+                  {orderitems.map((item) => (
                     <TableRow key={item.slug}>
                       <TableCell>
                         <Link
-                          href={`/product/{item.slug}`}
+                          href={`/product/${item.slug}`}
                           className="flex items-center"
                         >
                           <Image
@@ -139,7 +194,7 @@ const OrderDetailsTable = ({
                         <span className="px-2">{item.qty}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        ${item.price}
+                        {formatCurrency(item.price)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -167,7 +222,8 @@ const OrderDetailsTable = ({
                 <div>Total</div>
                 <div>{formatCurrency(totalPrice)}</div>
               </div>
-              {/* paypal payment*/}
+
+              {/* PayPal Payment */}
               {!isPaid && paymentMethod === "PayPal" && (
                 <div>
                   <PayPalScriptProvider options={{ clientId: paypalClientId }}>
@@ -179,6 +235,13 @@ const OrderDetailsTable = ({
                   </PayPalScriptProvider>
                 </div>
               )}
+
+              {/* Cash On Delivery */}
+              {isAdmin && !isPaid && paymentMethod === "CashOnDelivery" && (
+                <MarkAsPaidButton />
+              )}
+
+              {isAdmin && isPaid && !isDelivered && <MarkAsDeliveredButton />}
             </CardContent>
           </Card>
         </div>
