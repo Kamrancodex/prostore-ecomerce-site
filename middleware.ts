@@ -18,6 +18,7 @@ export async function middleware(request: NextRequest) {
     /\/admin/,
   ];
   console.log(protectedPaths);
+  console.log("auth secret", process.env.NEXTAUTH_SECRET);
 
   // Get authentication token from cookies
   const token = await getToken({
@@ -25,7 +26,7 @@ export async function middleware(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
   });
   console.log("token from middleware", token);
-  console.log(protectedPaths.some((p) => p.test(pathname)));
+  console.log("cookies", request.cookies);
 
   if (!token && protectedPaths.some((p) => p.test(pathname))) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
